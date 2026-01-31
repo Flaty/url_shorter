@@ -1,4 +1,3 @@
-from typing import Annotated
 from pydantic import BaseModel, HttpUrl, Field, field_validator, EmailStr
 
 
