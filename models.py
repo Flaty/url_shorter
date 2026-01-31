@@ -1,6 +1,5 @@
 from typing import Annotated
-from datetime import datetime
-from pydantic import BaseModel, HttpUrl, Field, field_validator
+from pydantic import BaseModel, HttpUrl, Field, field_validator, EmailStr
 
 
 BAN_WORDS = {"admin", "root", "moderator", "fuck", "shit", "bitch"}
@@ -32,11 +31,26 @@ class CreateURL(BaseModel):
 class URLResponse(BaseModel):
     short_url: str
 
-class URLState(BaseModel):
-    short_url: str
-    url: str
-    clicks: int
-    created_time: datetime
-    expires_time: datetime | None = None
+class User(BaseModel):
+    username: str | None = Field(
+        default=None,
+        pattern=r'^[a-zA-Z0-9]+$',
+        min_length=2,
+        max_length=10,
+        description='Напишите свой ник от 2 до 10 символов'
+    )
+    email: EmailStr
+    password: str = Field(
+        min_length=4,
+        max_length=28,
+        description='Пароль должен быть от 4 до 28 символов'
+    )
 
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    email: str
 
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str

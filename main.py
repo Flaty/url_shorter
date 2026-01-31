@@ -1,49 +1,82 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import RedirectResponse
-from models import CreateURL, URLResponse, URLState
-from storage import url_storage
-from datetime import datetime, timedelta
-from utils import generate_url
+from models import CreateURL, URLResponse, User, LoginRequest
+from database import get_db, URLModel, UserModel
+from datetime import datetime, timedelta, timezone
+from jose import jwt
+from utils import generate_url, hash_password, verify_password, SECRET_KEY, get_current_user
 app = FastAPI()
 
 @app.post('/create_url')
-def create_url(data: CreateURL):
-    
+def create_url(data: CreateURL, db = Depends(get_db), current_user = Depends(get_current_user)):
+
     if data.custom_code is None:
         code = generate_url()
     else:
         code = data.custom_code
-
-    if code in url_storage:
+    new_link = db.query(URLModel).filter_by(code=code).first()
+    if new_link:
         raise HTTPException(400, 'Код занят')
-    
-
-
-    url_storage[code] = URLState(
-    short_url=code,
+    new_url = URLModel(
+    code=code,
     url=str(data.url),
     clicks=0,
     created_time=datetime.now(),
-    expires_time=datetime.now() + timedelta(hours=data.expires_time) if data.expires_time else None
+    expires_time=datetime.now() + timedelta(hours=data.expires_time) if data.expires_time else None,
+    user_id=current_user.id
 )
+    db.add(new_url)
+    db.commit()
     return URLResponse(short_url=f'http://localhost:8000/{code}')
 
 @app.get('/{code}')
-def redirect_to_url(code: str):
-
-    if code not in url_storage:
+def redirect_to_url(code: str, db = Depends(get_db)): 
+    new_link = db.query(URLModel).filter_by(code=code).first()
+    if not new_link:
         raise HTTPException(404, 'Такой ссылки не существует')
-    if url_storage[code].expires_time is not None:
-        if url_storage[code].expires_time < datetime.now():
-            del url_storage[code]
+    if new_link.expires_time is not None:
+        if new_link.expires_time < datetime.now():
+            db.delete(new_link)
+            db.commit()
             raise HTTPException(410, 'Время жизни ссылки истекло')
-    url_storage[code].clicks += 1 
-    return RedirectResponse(url_storage[code].url, status_code=307)
+    new_link.clicks += 1
+    db.commit()
+    return RedirectResponse(new_link.url, status_code=307)
 
 @app.get('/stats/{code}')
-
-def stats(code: str):
-    if code not in url_storage:
+def stats(code: str, db = Depends(get_db)):
+    new_link = db.query(URLModel).filter_by(code=code).first()
+    if not new_link:
         raise HTTPException(404, 'Такой ссылки не существует')
     
-    return url_storage[code]
+    return new_link
+
+@app.post('/register')
+def register(user: User, db = Depends(get_db)):
+
+    new_user = UserModel(
+        username=user.username,
+        email=user.email,
+        password_hash=hash_password(user.password),
+        created_time=datetime.now()
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return {'message': 'User Created', 'user_id': new_user.id}
+
+@app.post('/login')
+def login(data: LoginRequest, db = Depends(get_db)):
+
+    user = db.query(UserModel).filter_by(email=data.email).first()
+
+    if not user or not verify_password(data.password, user.password_hash):
+        raise HTTPException(401, 'Invalid user or password')
+    
+    token = jwt.encode(
+        {'user_id': user.id, 'exp': datetime.now(timezone.utc) + timedelta(days=7)},
+        SECRET_KEY, 
+        algorithm='HS256'
+    )
+    
+    return {'access_token': token, 'token_type': 'bearer'}
