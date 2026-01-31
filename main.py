@@ -1,5 +1,4 @@
 from fastapi import FastAPI, HTTPException, Depends
-from sqlalchemy import delete
 from fastapi.responses import RedirectResponse
 from models import CreateURL, URLResponse, User, LoginRequest
 from database import get_db, URLModel, UserModel
@@ -8,7 +7,7 @@ from jose import jwt
 from utils import generate_url, hash_password, verify_password, SECRET_KEY, get_current_user
 app = FastAPI()
 
-@app.post('/create_url')
+@app.post('/api/create_url')
 def create_url(data: CreateURL, db = Depends(get_db), current_user = Depends(get_current_user)):
 
     if data.custom_code is None:
@@ -44,7 +43,7 @@ def redirect_to_url(code: str, db = Depends(get_db)):
     db.commit()
     return RedirectResponse(new_link.url, status_code=307)
 
-@app.get('/stats/{code}')
+@app.get('/api/stats/{code}')
 def stats(code: str, db = Depends(get_db)):
     new_link = db.query(URLModel).filter_by(code=code).first()
     if not new_link:
@@ -52,7 +51,7 @@ def stats(code: str, db = Depends(get_db)):
     
     return new_link
 
-@app.post('/register')
+@app.post('/api/register')
 def register(data: User, db = Depends(get_db)):
     email = db.query(UserModel).filter_by(email=data.email).first()
     username = db.query(UserModel).filter_by(username=data.username).first()
@@ -69,7 +68,7 @@ def register(data: User, db = Depends(get_db)):
     db.refresh(new_user)
     return {'message': 'User Created', 'user_id': new_user.id}
 
-@app.post('/login')
+@app.post('/api/login')
 def login(data: LoginRequest, db = Depends(get_db)):
 
     user = db.query(UserModel).filter_by(email=data.email).first()
@@ -85,7 +84,7 @@ def login(data: LoginRequest, db = Depends(get_db)):
     
     return {'access_token': token, 'token_type': 'bearer'}
 
-@app.delete('/{code}')
+@app.delete('/api/{code}')
 def delete_url(code: str, db = Depends(get_db), current_user = Depends(get_current_user)):
 
     link = db.query(URLModel).filter_by(code=code).first()
@@ -99,3 +98,11 @@ def delete_url(code: str, db = Depends(get_db), current_user = Depends(get_curre
     db.delete(link)
     db.commit()
     return {'message': 'url deleted succes'}
+
+@app.get('/api/my-url')
+def get_my_url(db = Depends(get_db), current_user = Depends(get_current_user)):
+
+    urls = db.query(URLModel).filter_by(user_id=current_user.id).all()
+
+    return urls
+
