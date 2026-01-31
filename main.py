@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends
+from sqlalchemy import delete
 from fastapi.responses import RedirectResponse
 from models import CreateURL, URLResponse, User, LoginRequest
 from database import get_db, URLModel, UserModel
@@ -52,12 +53,15 @@ def stats(code: str, db = Depends(get_db)):
     return new_link
 
 @app.post('/register')
-def register(user: User, db = Depends(get_db)):
-
+def register(data: User, db = Depends(get_db)):
+    email = db.query(UserModel).filter_by(email=data.email).first()
+    username = db.query(UserModel).filter_by(username=data.username).first()
+    if email or username:
+        raise HTTPException(409, 'Такая почта уже зарегана' if email else 'Такой юзернейм уже занят')
     new_user = UserModel(
-        username=user.username,
-        email=user.email,
-        password_hash=hash_password(user.password),
+        username=data.username,
+        email=data.email,
+        password_hash=hash_password(data.password),
         created_time=datetime.now()
     )
     db.add(new_user)
@@ -80,3 +84,18 @@ def login(data: LoginRequest, db = Depends(get_db)):
     )
     
     return {'access_token': token, 'token_type': 'bearer'}
+
+@app.delete('/{code}')
+def delete_url(code: str, db = Depends(get_db), current_user = Depends(get_current_user)):
+
+    link = db.query(URLModel).filter_by(code=code).first()
+
+    if not link:
+        raise HTTPException(404, 'Такой страницы нет')
+    
+    if link.user_id != current_user.id:
+        raise HTTPException(401, 'Не твоя ссылка')
+    
+    db.delete(link)
+    db.commit()
+    return {'message': 'url deleted succes'}
