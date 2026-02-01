@@ -106,3 +106,16 @@ def get_my_url(db = Depends(get_db), current_user = Depends(get_current_user)):
 
     return urls
 
+@app.get('/api/me')
+def get_profile(db = Depends(get_db), current_user = Depends(get_current_user)):
+
+    urls = db.query(URLModel).filter_by(user_id=current_user.id).all()
+
+    total_clicks = sum(url.clicks for url in urls)
+    total_urls = len(urls)
+    
+    return {
+        'username': current_user.username,
+        'total_clicks': total_clicks,
+        'total_urls': total_urls
+    }
