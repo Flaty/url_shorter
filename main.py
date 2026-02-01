@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import RedirectResponse
-from models import CreateURL, URLResponse, User, LoginRequest
+from models import CreateURL, URLResponse, User, LoginRequest, URLStats
 from database import get_db, URLModel, UserModel
 from datetime import datetime, timedelta, timezone
 from jose import jwt
@@ -12,6 +12,8 @@ def create_url(data: CreateURL, db = Depends(get_db), current_user = Depends(get
 
     if data.custom_code is None:
         code = generate_url()
+        while db.query(URLModel).filter_by(code=code).first():
+            code = generate_url()
     else:
         code = data.custom_code
     new_link = db.query(URLModel).filter_by(code=code).first()
@@ -43,7 +45,7 @@ def redirect_to_url(code: str, db = Depends(get_db)):
     db.commit()
     return RedirectResponse(new_link.url, status_code=307)
 
-@app.get('/api/stats/{code}')
+@app.get('/api/stats/{code}', response_model=URLStats)
 def stats(code: str, db = Depends(get_db)):
     new_link = db.query(URLModel).filter_by(code=code).first()
     if not new_link:

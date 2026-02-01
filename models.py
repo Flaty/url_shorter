@@ -1,4 +1,5 @@
-from pydantic import BaseModel, HttpUrl, Field, field_validator, EmailStr
+from pydantic import BaseModel, HttpUrl, Field, field_validator, EmailStr, ConfigDict
+from datetime import datetime
 
 
 BAN_WORDS = {"admin", "root", "moderator", "fuck", "shit", "bitch"}
@@ -29,6 +30,14 @@ class CreateURL(BaseModel):
     
 class URLResponse(BaseModel):
     short_url: str
+
+class URLStats(BaseModel):
+    code: str
+    url: str
+    clicks: str
+    created_time: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 class User(BaseModel):
     username: str | None = Field(
