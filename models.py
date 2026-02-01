@@ -47,7 +47,10 @@ class URList(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-
+class UserProfile(BaseModel):
+    username: str
+    total_clicks: int
+    total_urls: int
     
 
 class User(BaseModel):

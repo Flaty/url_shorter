@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import RedirectResponse
-from models import CreateURL, URLResponse, User, LoginRequest, URLStats
+from models import CreateURL, URLResponse, User, LoginRequest, URLStats, URList, UserProfile
 from database import get_db, URLModel, UserModel
 from datetime import datetime, timedelta, timezone
 from jose import jwt
@@ -101,14 +101,14 @@ def delete_url(code: str, db = Depends(get_db), current_user = Depends(get_curre
     db.commit()
     return {'message': 'url deleted succes'}
 
-@app.get('/api/my-url')
+@app.get('/api/my-url', response_model=[URList])
 def get_my_url(db = Depends(get_db), current_user = Depends(get_current_user)):
 
     urls = db.query(URLModel).filter_by(user_id=current_user.id).all()
 
     return urls
 
-@app.get('/api/me')
+@app.get('/api/me', response_model=UserProfile)
 def get_profile(db = Depends(get_db), current_user = Depends(get_current_user)):
 
     urls = db.query(URLModel).filter_by(user_id=current_user.id).all()
