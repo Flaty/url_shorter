@@ -39,6 +39,17 @@ class URLStats(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class URList(BaseModel):
+    code: str
+    created_time: datetime
+    expires_time: datetime
+    clicks: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+    
+
 class User(BaseModel):
     username: str | None = Field(
         default=None,
